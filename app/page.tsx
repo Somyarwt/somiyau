@@ -23,6 +23,13 @@ interface PopHeart {
   size: number;
 }
 
+interface YouTubePlayerInstance {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  getPlayerState?: () => number;
+  destroy?: () => void;
+}
+
 export default function Home() {
   // Navigation states:
   // "intro" (Page 1: do you miss me?)
@@ -64,8 +71,9 @@ export default function Home() {
   const [popHearts, setPopHearts] = useState<PopHeart[]>([]);
 
   // Music state: "Mrs Magic" by Strawberry Guy
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  const [isPlayingMusic, setIsPlayingMusic] = useState(true);
   const ytPlayerRef = useRef<HTMLIFrameElement | null>(null);
+  const playerRef = useRef<YouTubePlayerInstance | null>(null);
 
   // Web Audio Context for romantic sound effects
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -168,14 +176,158 @@ export default function Home() {
     }
   };
 
+  // Play/pause commands via YouTube Iframe API and postMessage
+  const playSong = useCallback(() => {
+    try {
+      if (playerRef.current && typeof playerRef.current.playVideo === "function") {
+        playerRef.current.playVideo();
+      } else if (ytPlayerRef.current?.contentWindow) {
+        ytPlayerRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: "playVideo", args: "" }),
+          "*"
+        );
+      }
+    } catch {
+      // Audio safety
+    }
+  }, []);
+
+  const pauseSong = useCallback(() => {
+    try {
+      if (playerRef.current && typeof playerRef.current.pauseVideo === "function") {
+        playerRef.current.pauseVideo();
+      } else if (ytPlayerRef.current?.contentWindow) {
+        ytPlayerRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: "pauseVideo", args: "" }),
+          "*"
+        );
+      }
+    } catch {
+      // Audio safety
+    }
+  }, []);
+
   // Handle Music Toggle for "Mrs Magic" by Strawberry Guy
-  const toggleMusic = (forcePlay = false) => {
-    if (forcePlay) {
+  const toggleMusic = useCallback((forcePlay?: boolean) => {
+    if (forcePlay === true) {
+      playSong();
       setIsPlayingMusic(true);
       return;
     }
-    setIsPlayingMusic((prev) => !prev);
-  };
+    if (forcePlay === false) {
+      pauseSong();
+      setIsPlayingMusic(false);
+      return;
+    }
+    setIsPlayingMusic((prev) => {
+      if (prev) {
+        pauseSong();
+        return false;
+      } else {
+        playSong();
+        return true;
+      }
+    });
+  }, [playSong, pauseSong]);
+
+  // Load and bind YouTube Iframe API for synchronized playback state
+  useEffect(() => {
+    let player: YouTubePlayerInstance | null = null;
+
+    const setupPlayer = () => {
+      try {
+        const win = window as unknown as {
+          YT?: {
+            Player: new (
+              id: string,
+              options: {
+                events?: {
+                  onReady?: (event: { target: YouTubePlayerInstance }) => void;
+                  onStateChange?: (event: { data: number }) => void;
+                };
+              }
+            ) => YouTubePlayerInstance;
+          };
+        };
+
+        if (win.YT && win.YT.Player) {
+          player = new win.YT.Player("yt-music-player", {
+            events: {
+              onReady: (event: { target: YouTubePlayerInstance }) => {
+                playerRef.current = event.target;
+                event.target.playVideo();
+                setIsPlayingMusic(true);
+              },
+              onStateChange: (event: { data: number }) => {
+                // 1 = playing, 2 = paused
+                if (event.data === 1) {
+                  setIsPlayingMusic(true);
+                } else if (event.data === 2) {
+                  setIsPlayingMusic(false);
+                }
+              },
+            },
+          });
+          playerRef.current = player;
+        }
+      } catch {
+        // Audio safety
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      const win = window as unknown as { YT?: unknown; onYouTubeIframeAPIReady?: () => void };
+      if (win.YT) {
+        setupPlayer();
+      } else {
+        win.onYouTubeIframeAPIReady = setupPlayer;
+        if (!document.getElementById("yt-iframe-api")) {
+          const tag = document.createElement("script");
+          tag.id = "yt-iframe-api";
+          tag.src = "https://www.youtube.com/iframe_api";
+          const firstScriptTag = document.getElementsByTagName("script")[0];
+          firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+        }
+      }
+    }
+
+    return () => {
+      try {
+        if (player && typeof player.destroy === "function") {
+          player.destroy();
+        }
+      } catch {
+        // Cleanup safety
+      }
+    };
+  }, []);
+
+  // Autoplay immediately right after opening the site + fallback for strict browser autoplay policies
+  useEffect(() => {
+    // 1. Send play command immediately on mount
+    playSong();
+
+    // 2. In case browser policy restricts unmuted autoplay before any gesture,
+    // ensure the song plays on the very first touch, pointer down, click, or scroll anywhere.
+    const handleFirstGesture = () => {
+      playSong();
+      setIsPlayingMusic(true);
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+
+    const gestureEvents = ["pointerdown", "touchstart", "click", "keydown", "scroll"];
+    gestureEvents.forEach((evt) => {
+      window.addEventListener(evt, handleFirstGesture, { once: true, passive: true });
+    });
+
+    return () => {
+      gestureEvents.forEach((evt) => {
+        window.removeEventListener(evt, handleFirstGesture);
+      });
+    };
+  }, [playSong]);
 
   // Cursor following heart effect on mousemove & touchmove
   useEffect(() => {
@@ -350,13 +502,14 @@ export default function Home() {
   useEffect(() => {
     const handleGlobalPointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
-      // Don't interrupt music or button clicks
+      // Don't interrupt button clicks
       if (target.closest("button") || target.closest("a") || target.closest("iframe")) {
         return;
       }
       spawnHeartBurst(e.clientX, e.clientY);
+      playSong();
       if (!isPlayingMusic) {
-        toggleMusic(true);
+        setIsPlayingMusic(true);
       }
     };
 
@@ -364,17 +517,19 @@ export default function Home() {
     return () => {
       window.removeEventListener("pointerdown", handleGlobalPointerDown);
     };
-  }, [spawnHeartBurst, isPlayingMusic]);
+  }, [spawnHeartBurst, isPlayingMusic, playSong]);
 
   // Screen click fallback for all containers
-  const handleScreenClick = (e: React.MouseEvent<HTMLElement>) => {
+  const handleScreenClick = () => {
+    playSong();
     if (!isPlayingMusic) {
-      toggleMusic(true);
+      setIsPlayingMusic(true);
     }
   };
 
   // Page 1: Clicking "no"
   const handleNoClick = () => {
+    playSong();
     playBuzzer();
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 500);
@@ -490,17 +645,19 @@ export default function Home() {
       ))}
 
       {/* Background Music: Strawberry Guy - Mrs Magic (https://youtu.be/3dZczoNnFWI) */}
-      <div className="fixed -left-[9999px] top-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
-        {isPlayingMusic && (
-          <iframe
-            ref={ytPlayerRef}
-            width="200"
-            height="200"
-            src="https://www.youtube.com/embed/3dZczoNnFWI?autoplay=1&loop=1&playlist=3dZczoNnFWI&enablejsapi=1"
-            title="Strawberry Guy - Mrs Magic"
-            allow="autoplay; encrypted-media"
-          />
-        )}
+      <div className="fixed bottom-0 right-0 w-3 h-3 pointer-events-none opacity-[0.001] -z-50 overflow-hidden">
+        <iframe
+          id="yt-music-player"
+          ref={ytPlayerRef}
+          width="200"
+          height="200"
+          src="https://www.youtube.com/embed/3dZczoNnFWI?autoplay=1&mute=0&controls=0&loop=1&playlist=3dZczoNnFWI&enablejsapi=1&playsinline=1"
+          title="Strawberry Guy - Mrs Magic"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          onLoad={() => {
+            playSong();
+          }}
+        />
       </div>
 
       {/* Top Bar: Title & Theme Song Player Widget */}
