@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+:root {
+  --font-press-start: "Press Start 2P", monospace;
+  --font-vt323: "VT323", monospace;
+}
+
+.font-pixel {
+  font-family: var(--font-press-start), monospace;
+}
+
+.font-retro {
+  font-family: var(--font-vt323), monospace;
+}
+
+.font-handwritten {
+  font-family: var(--font-caveat), cursive, sans-serif;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Undertale style pixel border */
+.pixel-border-white {
+  border: 4px solid #ffffff;
+  box-shadow: 0 0 0 2px #07050d, 0 0 25px rgba(168, 85, 247, 0.45);
+}
+
+.pixel-border-purple {
+  border: 3px solid #c084fc;
+  box-shadow: 0 0 0 2px #3b0764, 0 0 15px rgba(168, 85, 247, 0.5);
+}
+
+/* Retro buttons */
+.pixel-btn-action {
+  position: relative;
+  border: 3px solid #d8b4fe;
+  background: rgba(88, 28, 135, 0.7);
+  box-shadow: 0 4px 0 #3b0764, 0 0 15px rgba(168, 85, 247, 0.35);
+  transition: all 0.1s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pixel-btn-action:hover,
+.pixel-btn-action:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #3b0764, 0 0 20px rgba(192, 132, 252, 0.6);
+}
+
+.pixel-btn-no {
+  position: relative;
+  border: 3px solid #71717a;
+  background: rgba(39, 39, 42, 0.8);
+  box-shadow: 0 4px 0 #18181b;
+  transition: all 0.1s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pixel-btn-no:hover,
+.pixel-btn-no:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #18181b;
+}
+
+/* Animations */
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  15% { transform: translate(-6px, -4px) rotate(-1.5deg); }
+  30% { transform: translate(6px, 4px) rotate(1.5deg); }
+  45% { transform: translate(-5px, 3px) rotate(-1deg); }
+  60% { transform: translate(5px, -3px) rotate(1deg); }
+  75% { transform: translate(-3px, 1px) rotate(-0.5deg); }
+  90% { transform: translate(3px, -1px) rotate(0.5deg); }
+}
+
+.animate-shake {
+  animation: screen-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes flower-sway {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(3deg) translateY(-2px); }
+}
+
+.animate-flower-sway {
+  animation: flower-sway 3.5s ease-in-out infinite;
+}
+
+@keyframes flower-sway-delayed {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(-3deg) translateY(-3px); }
+}
+
+.animate-flower-sway-delayed {
+  animation: flower-sway-delayed 4.2s ease-in-out infinite 0.7s;
+}
+
+@keyframes pixel-glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(192, 132, 252, 0.8)) drop-shadow(0 0 25px rgba(168, 85, 247, 0.6));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(216, 180, 254, 1)) drop-shadow(0 0 35px rgba(192, 132, 252, 0.9));
+    transform: scale(1.06);
+  }
+}
+
+.animate-heart-glow {
+  animation: pixel-glow-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float-gentle 3s ease-in-out infinite;
+}
+
+@keyframes blink-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink-cursor 0.9s infinite;
+}
+
+/* Subtle CRT Scanline overlay */
+.scanline-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 26, 0) 50%, 
+    rgba(0, 0, 0, 0.28) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* Purple cloud drifting animations */
+@keyframes cloud-drift-slow {
+  0% { transform: translateX(-10%); }
+  50% { transform: translateX(10%); }
+  100% { transform: translateX(-10%); }
+}
+
+.animate-clouds {
+  animation: cloud-drift-slow 22s ease-in-out infinite;
+}
+
+@keyframes cloud-drift-reverse {
+  0% { transform: translateX(8%); }
+  50% { transform: translateX(-8%); }
+  100% { transform: translateX(8%); }
+}
+
+.animate-clouds-reverse {
+  animation: cloud-drift-reverse 28s ease-in-out infinite;
+}
+
+/* Click / Tap Pop Heart Animation */
+@keyframes heart-pop-burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) * 0.4)) scale(1.3) rotate(var(--rot));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx) * 1.5), calc(-50% + var(--dy) - 80px)) scale(0.7) rotate(var(--rot));
+  }
+}
+
+.animate-heart-pop {
+  animation: heart-pop-burst 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
